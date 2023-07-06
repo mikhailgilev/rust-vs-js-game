@@ -1,36 +1,38 @@
 const path = require("path");
 const CopyPlugin = require("copy-webpack-plugin");
-const WasmPackPlugin = require("@wasm-tool/wasm-pack-plugin");
 
 const dist = path.resolve(__dirname, "dist");
 
 module.exports = {
   mode: "production",
-  entry: {
-    index: "./js/index.js",
-  },
+	entry: "./src/main.ts",
   output: {
     path: dist,
-    filename: "[name].js",
+    filename: "index.js",
   },
   devServer: {
-    port: 8000,
+    port: 8001,
+    hot: true,
     static: {
       directory: dist,
     },
     open: true,
   },
-  experiments: {
-    asyncWebAssembly: true,
-    syncWebAssembly: true,
+  resolve: {
+    extensions: [".ts", ".js"]
+  },
+  module: {
+    rules: [
+      {
+        test: /\.ts?$/,
+        use: 'ts-loader',
+        exclude: /node_modules/,
+      }
+    ]
   },
   plugins: [
     new CopyPlugin({
       patterns: [path.resolve(__dirname, "static")],
-    }),
-
-    new WasmPackPlugin({
-      crateDirectory: __dirname,
     }),
   ],
 };
