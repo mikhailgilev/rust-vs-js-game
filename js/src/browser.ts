@@ -14,18 +14,18 @@ export async function fetch_with_str(resource: string): Promise<Response> {
   return await fetch(resource);
 }
 
-export async function fetch_json(json_path: string): Promise<void> {
+export async function fetch_json(json_path: string): Promise<any> {
   let resp_value = fetch_with_str(json_path);
 
   return (await resp_value).json();
 }
 
 export function new_image(): HTMLImageElement {
-  return new HTMLImageElement();
+  return document.createElement("img");
 }
 
-export function request_animation_frame(callback: () => void): number {
-  return request_animation_frame(callback);
+export function request_animation_frame(callback: (perf: number) => void): number {
+  return requestAnimationFrame(callback);
 }
 
 export function now(): number {
