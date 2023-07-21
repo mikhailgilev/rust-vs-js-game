@@ -1,19 +1,10 @@
 import { fetch_json } from "./browser";
-import { IPoint, IRenderer, Renderer, load_image } from "./engine";
+import { IPoint, IRenderer, ISheet, Renderer, load_image } from "./engine";
 
-interface ISheetRect {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
-interface ICell {
-  frame: ISheetRect;
-}
-
-interface ISheet {
-  frames: Record<string, ICell>;
+interface IGame {
+  initialize(): Promise<void>;
+  update(): void;
+  draw(renderer: IRenderer): void;
 }
 
 interface IWalkTheDog {
@@ -23,7 +14,7 @@ interface IWalkTheDog {
   position: IPoint;
 }
 
-export class WalkTheDog implements IWalkTheDog {
+export class WalkTheDog implements IWalkTheDog, IGame {
   image: HTMLImageElement | undefined = undefined;
   sheet: ISheet | undefined = undefined;
   frame: number = 0;

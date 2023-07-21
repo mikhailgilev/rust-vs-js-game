@@ -17,6 +17,22 @@ interface IRect {
   height: number;
 }
 
+export interface ISheetRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface ICell {
+  frame: ISheetRect;
+}
+
+export interface ISheet {
+  frames: Record<string, ICell>;
+}
+
+
 export interface IPoint {
   x: number,
   y: number,
