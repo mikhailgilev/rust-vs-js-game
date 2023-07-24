@@ -58,8 +58,8 @@ export class WalkTheDog implements IWalkTheDog, IGame {
     renderer.clear({
       x: 0.0,
       y: 0.0,
-      width: 600.0,
-      height: 600.0,
+      width: 570.0,
+      height: 570.0,
     });
     renderer.draw_image(
       this.image!,
