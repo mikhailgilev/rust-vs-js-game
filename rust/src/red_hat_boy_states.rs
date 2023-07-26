@@ -1,16 +1,21 @@
 use crate::engine::Point;
 
-const FLOOR: i16 = 445;
+const FLOOR: i16 = 449;
+const HEIGHT: i16 = 570;
+const PLAYER_HEIGHT: i16 = HEIGHT - FLOOR;
+const STARTING_POINT: i16 = -20;
 
 const IDLE_FRAME_NAME: &str = "Idle";
 const RUN_FRAME_NAME: &str = "Run";
 const SLIDING_FRAME_NAME: &str = "Slide";
 const JUMPING_FRAME_NAME: &str = "Jump";
+const FALLING_FRAME_NAME: &str = "Dead";
 
 const IDLE_FRAMES: u8 = 29;
 const RUNNING_FRAMES: u8 = 23;
 pub const SLIDING_FRAMES: u8 = 14;
 pub const JUMPING_FRAMES: u8 = 35;
+pub const FALLING_FRAMES: u8 = 29;
 
 const RUNNING_SPEED: i16 = 3;
 const JUMP_SPEED: i16 = -25;
@@ -60,6 +65,11 @@ impl RedHatBoyContext {
         self.velocity.y = y;
         self
     }
+
+    fn stop(mut self) -> Self {
+        self.velocity.x = 0;
+        self
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -72,6 +82,12 @@ pub struct Sliding;
 
 #[derive(Copy, Clone)]
 pub struct Jumping;
+
+#[derive(Copy, Clone)]
+pub struct Falling;
+
+#[derive(Copy, Clone)]
+pub struct KnockedOut;
 
 impl<S> RedHatBoyState<S> {
     pub fn context(&self) -> &RedHatBoyContext {
@@ -90,7 +106,10 @@ impl RedHatBoyState<Idle> {
         RedHatBoyState {
             context: RedHatBoyContext {
                 frame: 0,
-                position: Point { x: 0, y: FLOOR },
+                position: Point {
+                    x: STARTING_POINT,
+                    y: FLOOR,
+                },
                 velocity: Point { x: 0, y: 0 },
             },
             _state: Idle {},
@@ -130,6 +149,13 @@ impl RedHatBoyState<Running> {
             _state: Jumping {},
         }
     }
+
+    pub fn knock_out(self) -> RedHatBoyState<Falling> {
+        RedHatBoyState {
+            context: self.context.reset_frame().stop(),
+            _state: Falling {},
+        }
+    }
 }
 
 impl RedHatBoyState<Sliding> {
@@ -152,6 +178,13 @@ impl RedHatBoyState<Sliding> {
             _state: Running,
         }
     }
+
+    pub fn knock_out(self) -> RedHatBoyState<Falling> {
+        RedHatBoyState {
+            context: self.context.reset_frame().stop(),
+            _state: Falling {},
+        }
+    }
 }
 
 impl RedHatBoyState<Jumping> {
@@ -162,20 +195,55 @@ impl RedHatBoyState<Jumping> {
     pub fn update(mut self) -> JumpingEndState {
         self.context = self.context.update(JUMPING_FRAMES);
         if self.context.position.y >= FLOOR {
-            JumpingEndState::Complete(self.land())
+            JumpingEndState::Complete(self.land_on(FLOOR as f32))
         } else {
             JumpingEndState::Jumping(self)
         }
     }
 
-    pub fn land(self) -> RedHatBoyState<Running> {
+    pub fn land_on(self, position: f32) -> RedHatBoyState<Running> {
+        self.context.position.y = position as i16;
         RedHatBoyState {
-            context: self.context.reset_frame(),
+            context: self.context.reset_frame().set_on(position as i16),
             _state: Running,
+        }
+    }
+
+    pub fn knock_out(self) -> RedHatBoyState<Falling> {
+        RedHatBoyState {
+            context: self.context.reset_frame().stop(),
+            _state: Falling {},
         }
     }
 }
 
+impl RedHatBoyState<Falling> {
+    pub fn frame_name(&self) -> &str {
+        FALLING_FRAME_NAME
+    }
+
+    pub fn update(mut self) -> FallingEndState {
+        self.context = self.context.update(FALLING_FRAMES);
+        if self.context.frame >= FALLING_FRAMES {
+            FallingEndState::Complete(self.fall())
+        } else {
+            FallingEndState::Falling(self)
+        }
+    }
+
+    pub fn fall(self) -> RedHatBoyState<KnockedOut> {
+        RedHatBoyState {
+            context: self.context,
+            _state: KnockedOut {},
+        }
+    }
+}
+
+impl RedHatBoyState<KnockedOut> {
+    pub fn frame_name(&self) -> &str {
+        FALLING_FRAME_NAME
+    }
+}
 pub enum SlidingEndState {
     Complete(RedHatBoyState<Running>),
     Sliding(RedHatBoyState<Sliding>),
@@ -184,4 +252,9 @@ pub enum SlidingEndState {
 pub enum JumpingEndState {
     Complete(RedHatBoyState<Running>),
     Jumping(RedHatBoyState<Jumping>),
+}
+
+pub enum FallingEndState {
+    Complete(RedHatBoyState<KnockedOut>),
+    Falling(RedHatBoyState<Falling>),
 }
