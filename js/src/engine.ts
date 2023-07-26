@@ -10,11 +10,34 @@ export async function load_image(source: string): Promise<HTMLImageElement> {
   return image;
 }
 
-interface IRect {
+export interface IRect {
   x: number;
   y: number;
   width: number;
   height: number;
+}
+
+export class Rect implements IRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+
+  constructor(x: number, y: number, width: number, height: number) {
+    this.x = x;
+    this.y = y;
+    this.width = width;
+    this.height = height;
+  }
+
+  intersects(rect: IRect): boolean {
+    return (
+      this.x < rect.x + rect.width &&
+      this.x + this.width > rect.x &&
+      this.y < rect.y + rect.height &&
+      this.y + this.height > rect.y
+    );
+  }
 }
 
 export interface ISheetRect {
@@ -26,18 +49,44 @@ export interface ISheetRect {
 
 export interface ICell {
   frame: ISheetRect;
+  spriteSourceSize: ISheetRect;
 }
 
 export interface ISheet {
   frames: Record<string, ICell>;
 }
 
-
-export interface IPoint {
-  x: number,
-  y: number,
+export interface IImage {
+  element: HTMLImageElement;
+  position: IPoint;
+  bounding_box: IRect;
 }
 
+export class Image implements IImage {
+  element: HTMLImageElement;
+  position: IPoint;
+  bounding_box: IRect;
+
+  constructor(element: HTMLImageElement, position: IPoint) {
+    this.element = element;
+    this.position = position;
+    this.bounding_box = new Rect(
+      position.x,
+      position.y,
+      element.width,
+      element.height
+    );
+  }
+
+  draw(renderer: Renderer): void {
+    renderer.draw_entire_image(this.element, this.position);
+  }
+}
+
+export interface IPoint {
+  x: number;
+  y: number;
+}
 
 export interface IRenderer {
   context: CanvasRenderingContext2D;
@@ -63,6 +112,10 @@ export class Renderer implements IRenderer {
       destination.height
     );
   }
+
+  draw_entire_image(image: HTMLImageElement, position: IPoint): void {
+    this.context.drawImage(image, position.x, position.y);
+  }
 }
 
 export interface IGame {
@@ -86,19 +139,19 @@ export class KeyState implements IKeyState {
   pressed_keys: Map<string, KeyboardEvent>;
 
   constructor() {
-          this.pressed_keys = new Map();
+    this.pressed_keys = new Map();
   }
 
   is_pressed(code: string): boolean {
-      return this.pressed_keys.has(code);
+    return this.pressed_keys.has(code);
   }
 
   set_pressed(code: string, event: KeyboardEvent): void {
-      this.pressed_keys.set(code, event);
+    this.pressed_keys.set(code, event);
   }
 
   set_released(code: string): void {
-      this.pressed_keys.delete(code);
+    this.pressed_keys.delete(code);
   }
 }
 
@@ -109,7 +162,7 @@ export function prepare_input(): KeyState {
   };
   window.onkeyup = (event: KeyboardEvent) => {
     state.set_released(event.code);
-  }
+  };
   return state;
 }
 
@@ -138,4 +191,3 @@ export class GameLoop implements IGameLoop {
     request_animation_frame(animate);
   }
 }
-

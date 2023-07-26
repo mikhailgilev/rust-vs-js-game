@@ -17,10 +17,11 @@ pub const SLIDING_FRAMES: u8 = 14;
 pub const JUMPING_FRAMES: u8 = 35;
 pub const FALLING_FRAMES: u8 = 29;
 
-const RUNNING_SPEED: i16 = 3;
+const RUNNING_SPEED: i16 = 4;
 const JUMP_SPEED: i16 = -25;
 
 const GRAVITY: i16 = 1;
+const TERMINAL_VELOCITY: i16 = 20;
 
 #[derive(Copy, Clone)]
 pub struct RedHatBoyState<S> {
@@ -42,7 +43,9 @@ impl RedHatBoyContext {
         } else {
             self.frame = 0;
         }
-        self.velocity.y += GRAVITY;
+        if self.velocity.y < TERMINAL_VELOCITY {
+            self.velocity.y += GRAVITY;
+        }
         self.position.x += self.velocity.x;
         self.position.y += self.velocity.y;
         if self.position.y > FLOOR {
@@ -68,6 +71,12 @@ impl RedHatBoyContext {
 
     fn stop(mut self) -> Self {
         self.velocity.x = 0;
+        self
+    }
+
+    fn set_on(mut self, position: i16) -> Self {
+        let position = position - PLAYER_HEIGHT;
+        self.position.y = position;
         self
     }
 }
@@ -156,6 +165,13 @@ impl RedHatBoyState<Running> {
             _state: Falling {},
         }
     }
+
+    pub fn land_on(self, position: f32) -> RedHatBoyState<Running> {
+        RedHatBoyState {
+            context: self.context.set_on(position as i16),
+            _state: Running,
+        }
+    }
 }
 
 impl RedHatBoyState<Sliding> {
@@ -185,6 +201,13 @@ impl RedHatBoyState<Sliding> {
             _state: Falling {},
         }
     }
+
+    pub fn land_on(self, position: f32) -> RedHatBoyState<Sliding> {
+        RedHatBoyState {
+            context: self.context.set_on(position as i16),
+            _state: Sliding,
+        }
+    }
 }
 
 impl RedHatBoyState<Jumping> {
@@ -195,14 +218,13 @@ impl RedHatBoyState<Jumping> {
     pub fn update(mut self) -> JumpingEndState {
         self.context = self.context.update(JUMPING_FRAMES);
         if self.context.position.y >= FLOOR {
-            JumpingEndState::Complete(self.land_on(FLOOR as f32))
+            JumpingEndState::Complete(self.land_on(HEIGHT.into()))
         } else {
             JumpingEndState::Jumping(self)
         }
     }
 
     pub fn land_on(self, position: f32) -> RedHatBoyState<Running> {
-        self.context.position.y = position as i16;
         RedHatBoyState {
             context: self.context.reset_frame().set_on(position as i16),
             _state: Running,
@@ -244,6 +266,7 @@ impl RedHatBoyState<KnockedOut> {
         FALLING_FRAME_NAME
     }
 }
+
 pub enum SlidingEndState {
     Complete(RedHatBoyState<Running>),
     Sliding(RedHatBoyState<Sliding>),

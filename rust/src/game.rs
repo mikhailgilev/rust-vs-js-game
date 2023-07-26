@@ -5,6 +5,9 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use web_sys::HtmlImageElement;
 
+const LOW_PLATFORM: i16 = 420;
+const HIGH_PLATFORM: i16 = 375;
+
 pub enum Event {
     Run,
     Slide,
@@ -23,19 +26,27 @@ enum RedHatBoyStateMachine {
     Falling(RedHatBoyState<Falling>),
     KnockedOut(RedHatBoyState<KnockedOut>),
 }
- 
+
 impl RedHatBoyStateMachine {
     fn transition(self, event: Event) -> Self {
         match (self, event) {
-            (RedHatBoyStateMachine::Jumping(state), Event::Land(position)) => state.land_on(position) .into(),
             (RedHatBoyStateMachine::Idle(state), Event::Run) => state.run().into(),
+            (RedHatBoyStateMachine::Idle(state), Event::Update) => state.update().into(),
+            (RedHatBoyStateMachine::Running(state), Event::Land(position)) => {
+                state.land_on(position).into()
+            }
             (RedHatBoyStateMachine::Running(state), Event::Slide) => state.slide().into(),
             (RedHatBoyStateMachine::Running(state), Event::KnockOut) => state.knock_out().into(),
             (RedHatBoyStateMachine::Running(state), Event::Update) => state.update().into(),
             (RedHatBoyStateMachine::Running(state), Event::Jump) => state.jump().into(),
-            (RedHatBoyStateMachine::Idle(state), Event::Update) => state.update().into(),
+            (RedHatBoyStateMachine::Sliding(state), Event::Land(position)) => {
+                state.land_on(position).into()
+            }
             (RedHatBoyStateMachine::Sliding(state), Event::Update) => state.update().into(),
             (RedHatBoyStateMachine::Sliding(state), Event::KnockOut) => state.knock_out().into(),
+            (RedHatBoyStateMachine::Jumping(state), Event::Land(position)) => {
+                state.land_on(position).into()
+            }
             (RedHatBoyStateMachine::Jumping(state), Event::Update) => state.update().into(),
             (RedHatBoyStateMachine::Jumping(state), Event::KnockOut) => state.knock_out().into(),
             (RedHatBoyStateMachine::Falling(state), Event::Update) => state.update().into(),
@@ -148,7 +159,7 @@ impl Platform {
         }
     }
 
-    fn bounding_box(&self) -> Rect {
+    fn destination_box(&self) -> Rect {
         let platform = self
             .sheet
             .frames
@@ -178,8 +189,33 @@ impl Platform {
                 width: (platform.frame.w * 3).into(),
                 height: platform.frame.h.into(),
             },
-            &self.bounding_box(),
+            &self.destination_box(),
         )
+    }
+
+    fn bounding_boxes(&self) -> Vec<Rect> {
+        const X_OFFSET: f32 = 60.0;
+        const END_HEIGHT: f32 = 54.0;
+        let destination_box = self.destination_box();
+        let bounding_box_one = Rect {
+            x: destination_box.x,
+            y: destination_box.y,
+            width: X_OFFSET,
+            height: END_HEIGHT,
+        };
+        let bounding_box_two = Rect {
+            x: destination_box.x + X_OFFSET,
+            y: destination_box.y,
+            width: destination_box.width - (X_OFFSET * 2.0),
+            height: destination_box.height,
+        };
+        let bounding_box_three = Rect {
+            x: destination_box.x + destination_box.width - X_OFFSET,
+            y: destination_box.y,
+            width: X_OFFSET,
+            height: END_HEIGHT,
+        };
+        vec![bounding_box_one, bounding_box_two, bounding_box_three]
     }
 }
 
@@ -220,11 +256,11 @@ impl RedHatBoy {
                 width: sprite.frame.w.into(),
                 height: sprite.frame.h.into(),
             },
-            &self.bounding_box(),
+            &self.destination_box(),
         );
     }
 
-    fn bounding_box(&self) -> Rect {
+    fn destination_box(&self) -> Rect {
         let sprite = self.current_sprite().expect("Cell not found");
         Rect {
             x: (self.state_machine.context().position.x + sprite.sprite_source_size.x as i16)
@@ -234,6 +270,18 @@ impl RedHatBoy {
             width: sprite.frame.w.into(),
             height: sprite.frame.h.into(),
         }
+    }
+
+    fn bounding_box(&self) -> Rect {
+        const X_OFFSET: f32 = 18.0;
+        const Y_OFFSET: f32 = 14.0;
+        const WIDTH_OFFSET: f32 = 28.0;
+        let mut bounding_box = self.destination_box();
+        bounding_box.x += X_OFFSET;
+        bounding_box.width -= WIDTH_OFFSET;
+        bounding_box.y += Y_OFFSET;
+        bounding_box.height -= Y_OFFSET;
+        bounding_box
     }
 
     fn update(&mut self) {
@@ -258,6 +306,14 @@ impl RedHatBoy {
 
     fn knock_out(&mut self) {
         self.state_machine = self.state_machine.transition(Event::KnockOut);
+    }
+
+    fn pos_y(&self) -> i16 {
+        self.state_machine.context().position.y
+    }
+
+    fn velocity_y(&self) -> i16 {
+        self.state_machine.context().velocity.y
     }
 }
 
@@ -295,7 +351,10 @@ impl Game for WalkTheDog {
                 let platform = Platform::new(
                     platform_sheet.into_serde::<Sheet>()?,
                     engine::load_image("tiles.png").await?,
-                    Point { x: 200, y: 400 },
+                    Point {
+                        x: 200,
+                        y: LOW_PLATFORM,
+                    },
                 );
                 Ok(Box::new(WalkTheDog::Loaded(Walk {
                     boy: rhb,
@@ -329,12 +388,14 @@ impl Game for WalkTheDog {
             }
             walk.boy.update();
 
-            if walk
-                .boy
-                .bounding_box()
-                .intersects(&walk.platform.bounding_box())
-            {
-                walk.boy.land_on(walk.platform.bounding_box().y);
+            for bounding_box in &walk.platform.bounding_boxes() {
+                if walk.boy.bounding_box().intersects(bounding_box) {
+                    if walk.boy.velocity_y() > 0 && walk.boy.pos_y() < walk.platform.position.y {
+                        walk.boy.land_on(bounding_box.y);
+                    } else {
+                        walk.boy.knock_out();
+                    }
+                }
             }
 
             if walk
@@ -351,7 +412,7 @@ impl Game for WalkTheDog {
         renderer.clear(&Rect {
             x: 0.0,
             y: 0.0,
-            width: 570.0,
+            width: 600.0,
             height: 570.0,
         });
         if let WalkTheDog::Loaded(walk) = self {
