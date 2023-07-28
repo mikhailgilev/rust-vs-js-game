@@ -1,6 +1,6 @@
 import { IPoint } from "./engine";
 
-const FLOOR: number = 445;
+const FLOOR: number = 449;
 const HEIGHT: number = 570;
 const PLAYER_HEIGHT: number = HEIGHT - FLOOR;
 const STARTING_POINT: number = -20;

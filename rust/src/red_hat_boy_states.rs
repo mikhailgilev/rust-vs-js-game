@@ -46,7 +46,6 @@ impl RedHatBoyContext {
         if self.velocity.y < TERMINAL_VELOCITY {
             self.velocity.y += GRAVITY;
         }
-        self.position.x += self.velocity.x;
         self.position.y += self.velocity.y;
         if self.position.y > FLOOR {
             self.position.y = FLOOR;
@@ -166,7 +165,7 @@ impl RedHatBoyState<Running> {
         }
     }
 
-    pub fn land_on(self, position: f32) -> RedHatBoyState<Running> {
+    pub fn land_on(self, position: i16) -> RedHatBoyState<Running> {
         RedHatBoyState {
             context: self.context.set_on(position as i16),
             _state: Running,
@@ -202,9 +201,9 @@ impl RedHatBoyState<Sliding> {
         }
     }
 
-    pub fn land_on(self, position: f32) -> RedHatBoyState<Sliding> {
+    pub fn land_on(self, position: i16) -> RedHatBoyState<Sliding> {
         RedHatBoyState {
-            context: self.context.set_on(position as i16),
+            context: self.context.set_on(position),
             _state: Sliding,
         }
     }
@@ -224,9 +223,9 @@ impl RedHatBoyState<Jumping> {
         }
     }
 
-    pub fn land_on(self, position: f32) -> RedHatBoyState<Running> {
+    pub fn land_on(self, position: i16) -> RedHatBoyState<Running> {
         RedHatBoyState {
-            context: self.context.reset_frame().set_on(position as i16),
+            context: self.context.reset_frame().set_on(position),
             _state: Running,
         }
     }

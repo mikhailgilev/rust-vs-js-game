@@ -6,7 +6,10 @@ use wasm_bindgen::prelude::*;
 mod browser;
 mod engine;
 mod game;
+mod red_hat_boy;
 mod red_hat_boy_states;
+mod segments;
+mod obstacles;
 
 // This is like the `main` function, except for JavaScript.
 #[wasm_bindgen(start)]
