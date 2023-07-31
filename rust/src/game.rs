@@ -1,10 +1,12 @@
 use std::rc::Rc;
 
 use crate::browser;
-use crate::engine::{load_image, Game, Image, KeyState, Point, Rect, Renderer, Sheet, SpriteSheet};
+use crate::engine::{
+    load_image, Audio, Game, Image, KeyState, Point, Rect, Renderer, Sheet, SpriteSheet,
+};
 use crate::obstacles::Obstacle;
 use crate::red_hat_boy::RedHatBoy;
-use crate::segments::{stone_and_platform, platform_and_stone};
+use crate::segments::{platform_and_stone, stone_and_platform};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use rand::{thread_rng, Rng};
@@ -73,7 +75,16 @@ impl Game for WalkTheDog {
         match self {
             WalkTheDog::Loading => {
                 let json = browser::fetch_json("rhb.json").await?;
-                let rhb = RedHatBoy::new(json.into_serde::<Sheet>()?, load_image("rhb.png").await?);
+                let audio = Audio::new()?;
+                let sound = audio.load_sound("SFX_Jump_23.mp3").await?;
+                let background_music = audio.load_sound("background_song.mp3").await?;
+                audio.play_looping_sound(&background_music);
+                let rhb = RedHatBoy::new(
+                    json.into_serde::<Sheet>()?,
+                    load_image("rhb.png").await?,
+                    audio,
+                    sound,
+                );
                 let background = load_image("BG.png").await?;
                 let background_width = background.width() as i16;
                 let stone = load_image("Stone.png").await?;

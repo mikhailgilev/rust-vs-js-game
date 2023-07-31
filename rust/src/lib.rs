@@ -10,6 +10,7 @@ mod red_hat_boy;
 mod red_hat_boy_states;
 mod segments;
 mod obstacles;
+mod sound;
 
 // This is like the `main` function, except for JavaScript.
 #[wasm_bindgen(start)]

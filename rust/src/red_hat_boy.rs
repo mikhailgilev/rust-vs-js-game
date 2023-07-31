@@ -1,6 +1,6 @@
 use web_sys::HtmlImageElement;
 
-use crate::{red_hat_boy_states::{RedHatBoyState, Idle, Running, Sliding, Jumping, Falling, KnockedOut, RedHatBoyContext, SlidingEndState, JumpingEndState, FallingEndState}, engine::{Sheet, Cell, Renderer, Rect}};
+use crate::{red_hat_boy_states::{RedHatBoyState, Idle, Running, Sliding, Jumping, Falling, KnockedOut, RedHatBoyContext, SlidingEndState, JumpingEndState, FallingEndState}, engine::{Sheet, Cell, Renderer, Rect, Sound, Audio}};
 
 pub enum Event {
 	Run,
@@ -11,7 +11,7 @@ pub enum Event {
 	Land(i16),
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 enum RedHatBoyStateMachine {
 	Idle(RedHatBoyState<Idle>),
 	Running(RedHatBoyState<Running>),
@@ -23,7 +23,7 @@ enum RedHatBoyStateMachine {
 
 impl RedHatBoyStateMachine {
 	fn transition(self, event: Event) -> Self {
-			match (self, event) {
+			match (self.clone(), event) {
 					(RedHatBoyStateMachine::Idle(state), Event::Run) => state.run().into(),
 					(RedHatBoyStateMachine::Idle(state), Event::Update) => state.update().into(),
 					(RedHatBoyStateMachine::Running(state), Event::Land(position)) => {
@@ -145,9 +145,9 @@ pub struct RedHatBoy {
 }
 
 impl RedHatBoy {
-	pub fn new(sheet: Sheet, image: HtmlImageElement) -> Self {
+	pub fn new(sheet: Sheet, image: HtmlImageElement, audio: Audio, jump_sound: Sound) -> Self {
 			RedHatBoy {
-					state_machine: RedHatBoyStateMachine::Idle(RedHatBoyState::new()),
+					state_machine: RedHatBoyStateMachine::Idle(RedHatBoyState::new(audio, jump_sound)),
 					sprite_sheet: sheet,
 					image,
 			}
@@ -202,27 +202,27 @@ impl RedHatBoy {
 	}
 
 	pub fn update(&mut self) {
-			self.state_machine = self.state_machine.update();
+			self.state_machine = self.state_machine.clone().update();
 	}
 
 	pub fn run_right(&mut self) {
-			self.state_machine = self.state_machine.transition(Event::Run);
+			self.state_machine = self.state_machine.clone().transition(Event::Run);
 	}
 
 	pub fn slide(&mut self) {
-			self.state_machine = self.state_machine.transition(Event::Slide);
+			self.state_machine = self.state_machine.clone().transition(Event::Slide);
 	}
 
 	pub fn jump(&mut self) {
-			self.state_machine = self.state_machine.transition(Event::Jump);
+			self.state_machine = self.state_machine.clone().transition(Event::Jump);
 	}
 
 	pub fn land_on(&mut self, position: i16) {
-			self.state_machine = self.state_machine.transition(Event::Land(position));
+			self.state_machine = self.state_machine.clone().transition(Event::Land(position));
 	}
 
 	pub fn knock_out(&mut self) {
-			self.state_machine = self.state_machine.transition(Event::KnockOut);
+			self.state_machine = self.state_machine.clone().transition(Event::KnockOut);
 	}
 
 	pub fn pos_y(&self) -> i16 {

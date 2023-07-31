@@ -10,9 +10,15 @@ use std::rc::Rc;
 use std::sync::Mutex;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+use web_sys::AudioBuffer;
+use web_sys::AudioContext;
 use web_sys::{CanvasRenderingContext2d, HtmlImageElement};
 
 use crate::browser;
+use crate::sound::create_audio_context;
+use crate::sound::decode_audio_data;
+use crate::sound::play_sound;
+use crate::sound::LOOPING;
 
 pub async fn load_image(source: &str) -> Result<HtmlImageElement> {
     let image = browser::new_image()?;
@@ -319,4 +325,38 @@ impl GameLoop {
         )?;
         Ok(())
     }
+}
+
+#[derive(Clone)]
+pub struct Audio {
+    context: AudioContext,
+}
+
+impl Audio {
+    pub fn new() -> Result<Self> {
+        Ok(Audio {
+            context: create_audio_context()?,
+        })
+    }
+
+    pub async fn load_sound(&self, filename: &str) -> Result<Sound> {
+        let array_buffer = browser::fetch_array_buffer(filename).await?;
+        let audio_buffer = decode_audio_data(&self.context, &array_buffer).await?;
+        Ok(Sound {
+            buffer: audio_buffer,
+        })
+    }
+
+    pub fn play_sound(&self, sound: &Sound, looping: LOOPING) -> Result<()> {
+        play_sound(&self.context, &sound.buffer, looping)
+    }
+
+    pub fn play_looping_sound(&self, sound: &Sound) -> Result<()> {
+        play_sound(&self.context, &sound.buffer, LOOPING::YES)
+    }
+}
+
+#[derive(Clone)]
+pub struct Sound {
+    buffer: AudioBuffer,
 }

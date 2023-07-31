@@ -1,4 +1,6 @@
-use crate::engine::Point;
+use js_sys::Math::log;
+
+use crate::{engine::{Point, Audio, Sound}, sound::LOOPING};
 
 const FLOOR: i16 = 449;
 const HEIGHT: i16 = 570;
@@ -23,17 +25,19 @@ const JUMP_SPEED: i16 = -25;
 const GRAVITY: i16 = 1;
 const TERMINAL_VELOCITY: i16 = 20;
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct RedHatBoyState<S> {
     context: RedHatBoyContext,
     _state: S,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct RedHatBoyContext {
     pub frame: u8,
     pub position: Point,
     pub velocity: Point,
+    audio: Audio,
+    jump_sound: Sound,
 }
 
 impl RedHatBoyContext {
@@ -78,6 +82,13 @@ impl RedHatBoyContext {
         self.position.y = position;
         self
     }
+
+    fn play_jump_sound(self) -> Self {
+        if let Err(err) = self.audio.play_sound(&self.jump_sound, LOOPING::NO) {
+            log!("Error playing jump sound {:#?}", err);
+        }
+        self
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -110,7 +121,7 @@ impl RedHatBoyState<Idle> {
             _state: Running {},
         }
     }
-    pub fn new() -> Self {
+    pub fn new(audio: Audio, jump_sound: Sound) -> Self {
         RedHatBoyState {
             context: RedHatBoyContext {
                 frame: 0,
@@ -119,6 +130,8 @@ impl RedHatBoyState<Idle> {
                     y: FLOOR,
                 },
                 velocity: Point { x: 0, y: 0 },
+                audio,
+                jump_sound,
             },
             _state: Idle {},
         }
@@ -153,7 +166,7 @@ impl RedHatBoyState<Running> {
 
     pub fn jump(self) -> RedHatBoyState<Jumping> {
         RedHatBoyState {
-            context: self.context.set_vertical_velocity(JUMP_SPEED).reset_frame(),
+            context: self.context.set_vertical_velocity(JUMP_SPEED).reset_frame().play_jump_sound(),
             _state: Jumping {},
         }
     }
