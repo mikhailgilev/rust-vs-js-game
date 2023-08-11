@@ -310,7 +310,8 @@ impl GameLoop {
         let mut keystate = KeyState::new();
         *g.borrow_mut() = Some(browser::create_raf_closure(move |perf: f64| {
             process_inpit(&mut keystate, &mut keyevent_receiver);
-            game_loop.accumulated_delta += (perf - game_loop.last_frame) as f32;
+            let frame_time = perf - game_loop.last_frame;
+            game_loop.accumulated_delta += frame_time as f32;
             while game_loop.accumulated_delta > FRAME_SIZE {
                 game.update(&keystate);
                 game_loop.accumulated_delta -= FRAME_SIZE;

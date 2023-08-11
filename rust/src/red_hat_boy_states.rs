@@ -36,8 +36,8 @@ pub struct RedHatBoyContext {
     pub frame: u8,
     pub position: Point,
     pub velocity: Point,
-    audio: Audio,
-    jump_sound: Sound,
+    pub audio: Audio,
+    pub jump_sound: Sound,
 }
 
 impl RedHatBoyContext {
