@@ -79,19 +79,103 @@ class Walk implements IWalk {
   }
 }
 
-enum WalkTheDogState {
-  Loading,
-  Loaded,
+enum ReadyEndState {
+  Complete,
+  Continue,
 }
 
-interface IWalkTheDog {
-  state: WalkTheDogState;
-  walk: IWalk | undefined;
+enum GameOverEndState {
+  Complete,
+  Continue,
 }
+
+
+
+enum WalkTheDogStateType {
+  Ready,
+  Walking,
+  GameOver,
+}
+
+interface IWalkTheDogState {
+ type: WalkTheDogStateType;
+ walk: Walk;
+}
+
+class WalkingWalkTheDogState implements IWalkTheDogState {
+  type = WalkTheDogStateType.Walking;
+  constructor(public walk: Walk) {}
+}
+
+class ReadyWalkTheDogState implements IWalkTheDogState {
+  type = WalkTheDogStateType.Ready;
+  constructor(public walk: Walk) {}
+
+  update(keystate: KeyState): ReadyWalkTheDogState | WalkingWalkTheDogState {
+    this.walk.boy.update();
+    if (keystate.is_pressed("ArrowRight")) {
+      return this.start_running();
+    } else {
+      return this;
+    }
+  }
+
+start_running(): WalkingWalkTheDogState {
+    this.run_right();
+    return new WalkingWalkTheDogState(this.walk);
+  } 
+
+run_right(): void {
+    this.walk.boy.run_right();
+  }
+}
+
+class GameOverWalkTheDogState implements IWalkTheDogState {
+  type = WalkTheDogStateType.GameOver;
+  constructor(public walk: Walk) {}
+}
+
+
+
+class WalkTheDogStateMachine {
+  private state: IWalkTheDogState;
+
+  constructor(walk: Walk) {
+    this.state = new ReadyWalkTheDogState(walk);
+  }
+  
+  update(keystate: KeyState): WalkTheDogStateMachine {
+    if (this.state.type === WalkTheDogStateType.Ready) {
+      this.state = (<ReadyWalkTheDogState>this.state).update(keystate);
+    } else if (this.state.type === WalkTheDogStateType.Walking) {
+      this.state = (<WalkingWalkTheDogState>this.state).update(keystate);
+    } else if (this.state.type === WalkTheDogStateType.GameOver) {
+      this.state = (<GameOverWalkTheDogState>this.state).update();
+    }
+    return this;
+  }
+
+  fn draw(&self, renderer: &Renderer) {
+      match self {
+          WalkTheDogStateMachine::Ready(state) => state.draw(renderer),
+          WalkTheDogStateMachine::Walking(state) => state.draw(renderer),
+          WalkTheDogStateMachine::GameOver(state) => state.draw(renderer),
+      }
+  }
+
+  fn new(walk: Walk) -> Self {
+      WalkTheDogStateMachine::Ready(WalkTheDogState::new(walk))
+  }
+}
+
 
 export class WalkTheDog implements IWalkTheDog, IGame {
   state: WalkTheDogState = WalkTheDogState.Loading;
-  walk: IWalk | undefined = undefined;
+  walk: Walk;
+
+  draw(renderer: Renderer): void {
+    this.walk.draw(renderer);
+  }
 
   async initialize(): Promise<void> {
     if (this.state === WalkTheDogState.Loading) {
@@ -148,21 +232,6 @@ export class WalkTheDog implements IWalkTheDog, IGame {
       if (this.walk.boy.bounding_box().intersects(this.walk.stone.bounding_box)) {
         this.walk.boy.knock_out();
       }
-    }
-  }
-
-  draw(renderer: Renderer): void {
-    renderer.clear({
-      x: 0.0,
-      y: 0.0,
-      width: 570.0,
-      height: 570.0,
-    });
-    if (this.state === WalkTheDogState.Loaded && this.walk !== undefined) {
-      this.walk.background.draw(renderer);
-      this.walk.boy.draw(renderer);
-      this.walk.stone.draw(renderer);
-      this.walk.platform.draw(renderer);
     }
   }
 }
