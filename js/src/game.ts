@@ -20,66 +20,63 @@ interface IWalk {
 }
 
 class Walk implements IWalk {
-  obstacle_sheet: SpriteSheet;
-  boy: RedHatBoy;
-  backgrounds: [Image, Image];
-  obstacles: Array<IObstacle>;
-  stone: HTMLImageElement;
-  timeline: number;
+  constructor(
+    public boy: RedHatBoy,
+    public backgrounds: [Image, Image],
+    public obstacles: Array<IObstacle>,
+    public obstacle_sheet: SpriteSheet,
+    public stone: HTMLImageElement,
+    public timeline: number
+  ) {}
 
   velocity(): number {
     return -this.boy.walking_speed();
-}
+  }
 
-fn generate_next_segment(&mut self) {
-    let mut rng = thread_rng();
-    let next_segment = rng.gen_range(0..2);
-    let mut next_obstacles = match next_segment {
-        0 => stone_and_platform(
-            self.stone.clone(),
-            self.obstacle_sheet.clone(),
-            self.timeline + OBSTACLE_BUFFER,
-        ),
-        1 => platform_and_stone(
-            self.stone.clone(),
-            self.obstacle_sheet.clone(),
-            self.timeline + OBSTACLE_BUFFER,
-        ),
-        _ => vec![],
-    };
-    self.timeline = rightmost(&next_obstacles);
-    self.obstacles.append(&mut next_obstacles);
-}
-
-fn draw(&self, renderer: &Renderer) {
-    self.backgrounds.iter().for_each(|background| {
-        background.draw(renderer);
-    });
-    self.boy.draw(renderer);
-    self.obstacles.iter().for_each(|obstacle| {
-        obstacle.draw(renderer);
-    });
-}
-
-fn knocked_out(&self) -> bool {
-    self.boy.knocked_out()
-}
-
-fn reset(walk: Self) -> Self {
-    let starting_obstacles =
-        stone_and_platform(walk.stone.clone(), walk.obstacle_sheet.clone(), 0);
-    let timeline = rightmost(&starting_obstacles);
-
-    Walk {
-        boy: RedHatBoy::reset(walk.boy),
-        backgrounds: walk.backgrounds,
-        obstacles: starting_obstacles,
-        obstacle_sheet: walk.obstacle_sheet,
-        stone: walk.stone,
-        timeline,
+  generate_next_segment(): void {
+    const next_segment = Math.floor(Math.random() * 3);
+    let next_obstacles;
+    switch (next_segment) {
+      case 0:
+        next_obstacles = stone_and_platform(this.stone, this.obstacle_sheet, this.timeline + OBSTACLE_BUFFER);
+        break;
+      case 1:
+        next_obstacles = platform_and_stone(this.stone, this.obstacle_sheet, this.timeline + OBSTACLE_BUFFER);
+        break;
+      default:
+        next_obstacles = [];
     }
-}
+    this.timeline = rightmost(next_obstacles);
+    this.obstacles.push(...next_obstacles);
+  }
 
+  draw(renderer: Renderer): void {
+    this.backgrounds.forEach((background) => {
+      background.draw(renderer);
+    });
+    this.boy.draw(renderer);
+    this.obstacles.forEach((obstacle) => {
+      obstacle.draw(renderer);
+    });
+  }
+
+  knocked_out(): boolean {
+    return this.boy.knocked_out();
+  }
+
+  static reset(walk: Walk): Walk {
+    const starting_obstacles = stone_and_platform(walk.stone, walk.obstacle_sheet, 0);
+    const timeline = rightmost(starting_obstacles);
+
+    return new Walk(
+      RedHatBoy.reset(walk.boy),
+      walk.backgrounds,
+      starting_obstacles,
+      walk.obstacle_sheet,
+      walk.stone,
+      timeline
+    );
+  }
 }
 
 enum WalkTheDogState {
