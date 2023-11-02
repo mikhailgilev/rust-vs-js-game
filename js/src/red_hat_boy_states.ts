@@ -1,4 +1,5 @@
-import { IPoint } from "./engine";
+import { IPoint, Sound, Audio } from "./engine";
+import { LOOPING } from "./sound";
 
 const FLOOR: number = 449;
 const HEIGHT: number = 570;
@@ -27,13 +28,17 @@ export interface IRedHatBoyContext {
   frame: number;
   position: IPoint;
   velocity: IPoint;
+  audio: Audio;
+  jump_sound: Sound;
 }
 
 export class RedHatBoyContext implements IRedHatBoyContext {
   constructor(
     public frame: number,
     public position: IPoint,
-    public velocity: IPoint
+    public velocity: IPoint,
+    public audio: Audio,
+    public jump_sound: Sound
   ) {}
 
   update(frame_count: number): RedHatBoyContext {
@@ -78,6 +83,11 @@ export class RedHatBoyContext implements IRedHatBoyContext {
     this.position.y = position;
     return this;
   }
+
+  play_jump_sound(): RedHatBoyContext {
+    this.audio.play_sound(this.jump_sound, LOOPING.NO);
+    return this;
+  }
 }
 
 export enum StateType {
@@ -98,12 +108,8 @@ export class IdleRedHatBoyState implements IRedHatBoyState {
   context: RedHatBoyContext;
   type = StateType.Idle;
 
-  constructor() {
-    this.context = new RedHatBoyContext(
-      0,
-      { x: STARTING_POINT, y: FLOOR },
-      { x: 0, y: 0 }
-    );
+  constructor(audio: Audio, jump_sound: Sound) {
+    this.context = new RedHatBoyContext(0, { x: STARTING_POINT, y: FLOOR }, { x: 0, y: 0 }, audio, jump_sound);
   }
 
   run(): RunningRedHatBoyState {
@@ -142,9 +148,7 @@ export class RunningRedHatBoyState implements IRedHatBoyState {
   }
 
   jump(): JumpingRedHatBoyState {
-    return new JumpingRedHatBoyState(
-      this.context.set_vertical_velocity(JUMP_SPEED).reset_frame()
-    );
+    return new JumpingRedHatBoyState(this.context.set_vertical_velocity(JUMP_SPEED).reset_frame());
   }
 
   knock_out(): FallingRedHatBoyState {
@@ -212,9 +216,7 @@ export class JumpingRedHatBoyState {
   }
 
   land_on(position: number): RunningRedHatBoyState {
-    return new RunningRedHatBoyState(
-      this.context.reset_frame().set_on(position)
-    );
+    return new RunningRedHatBoyState(this.context.reset_frame().set_on(position));
   }
 
   knock_out(): FallingRedHatBoyState {

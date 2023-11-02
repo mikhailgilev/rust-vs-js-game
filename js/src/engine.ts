@@ -1,4 +1,5 @@
-import { new_image, context, now, request_animation_frame } from "./browser";
+import { new_image, context, now, request_animation_frame, fetch_array_buffer } from "./browser";
+import { LOOPING, create_audio_context, decode_audio_data, play_sound } from "./sound";
 
 export async function load_image(source: string): Promise<HTMLImageElement> {
   let image = new_image();
@@ -37,19 +38,14 @@ export class Image implements IImage {
 
   constructor(element: HTMLImageElement, position: IPoint) {
     this.element = element;
-    this.bounding_box_rect = new Rect(
-      position.x,
-      position.y,
-      element.width,
-      element.height
-    );
+    this.bounding_box_rect = new Rect(position.x, position.y, element.width, element.height);
   }
 
   draw(renderer: Renderer): void {
     renderer.draw_entire_image(this.element, this.bounding_box_rect.position);
   }
 
-  get bounding_box(): IRect {
+  bounding_box(): Rect {
     return this.bounding_box_rect;
   }
 
@@ -83,12 +79,7 @@ export class Rect implements IRect {
     this.height = height;
   }
 
-  static new_from_x_y(
-    x: number,
-    y: number,
-    width: number,
-    height: number
-  ): Rect {
+  static new_from_x_y(x: number, y: number, width: number, height: number): Rect {
     return new Rect(x, y, width, height);
   }
 
@@ -117,12 +108,7 @@ export class Rect implements IRect {
   }
 
   intersects(rect: Rect): boolean {
-    return (
-      this.x() < rect.right() &&
-      this.right() > rect.x() &&
-      this.y() < rect.bottom() &&
-      this.bottom() > rect.y()
-    );
+    return this.x() < rect.right() && this.right() > rect.x() && this.y() < rect.bottom() && this.bottom() > rect.y();
   }
 }
 
@@ -209,12 +195,12 @@ export function prepare_input(): KeyState {
   return state;
 }
 
-interface ISpriteSheet {
+export interface ISpriteSheet {
   sheet: ISheet;
   image: HTMLImageElement;
 }
 
-class SpriteSheet implements ISpriteSheet {
+export class SpriteSheet implements ISpriteSheet {
   sheet: ISheet;
   image: HTMLImageElement;
 
@@ -240,6 +226,7 @@ interface IGameLoop {
 export class GameLoop implements IGameLoop {
   last_frame: number = now();
   accumulated_delta: number = 0.0;
+
   async start(game: IGame): Promise<void> {
     let keystate = prepare_input();
     let gameImpl = await game.initialize();
@@ -256,4 +243,42 @@ export class GameLoop implements IGameLoop {
     };
     request_animation_frame(animate);
   }
+}
+
+interface IAudio {
+  context: AudioContext;
+}
+
+interface ISound {
+  buffer: AudioBuffer;
+}
+
+export class Sound implements ISound {
+  constructor(public buffer: AudioBuffer) {}
+}
+
+export class Audio implements IAudio {
+  context: AudioContext;
+
+  constructor() {
+    this.context = create_audio_context();
+  }
+
+  async load_sound(filename: string): Promise<Sound> {
+    const array_buffer = await fetch_array_buffer(filename);
+    const audio_buffer = await decode_audio_data(this.context, array_buffer);
+    return new Sound(audio_buffer);
+  }
+
+  play_sound(sound: Sound, looping: LOOPING): void {
+    play_sound(this.context, sound.buffer, looping);
+  }
+
+  play_looping_sound(sound: Sound): void {
+    play_sound(this.context, sound.buffer, LOOPING.YES);
+  }
+}
+
+export function add_click_handler(elem: HTMLElement, event: () => void): void {
+  elem.addEventListener("click", event);
 }

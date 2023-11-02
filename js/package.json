@@ -17,6 +17,9 @@
   },
   "dependencies": {
     "@types/stats.js": "^0.17.0",
-    "stats.js": "^0.17.0"    
+    "stats.js": "^0.17.0"
+  },
+  "prettier": {
+    "printWidth": 120
   }
 }
