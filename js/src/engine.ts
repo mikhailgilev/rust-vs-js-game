@@ -10,36 +10,6 @@ export async function load_image(source: string): Promise<HTMLImageElement> {
   return image;
 }
 
-export interface IRect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-export class Rect implements IRect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-
-  constructor(x: number, y: number, width: number, height: number) {
-    this.x = x;
-    this.y = y;
-    this.width = width;
-    this.height = height;
-  }
-
-  intersects(rect: IRect): boolean {
-    return (
-      this.x < rect.x + rect.width &&
-      this.x + this.width > rect.x &&
-      this.y < rect.y + rect.height &&
-      this.y + this.height > rect.y
-    );
-  }
-}
-
 export interface ISheetRect {
   x: number;
   y: number;
@@ -58,19 +28,16 @@ export interface ISheet {
 
 export interface IImage {
   element: HTMLImageElement;
-  position: IPoint;
-  bounding_box: IRect;
+  bounding_box_rect: IRect;
 }
 
 export class Image implements IImage {
   element: HTMLImageElement;
-  position: IPoint;
-  bounding_box: IRect;
+  bounding_box_rect: Rect;
 
   constructor(element: HTMLImageElement, position: IPoint) {
     this.element = element;
-    this.position = position;
-    this.bounding_box = new Rect(
+    this.bounding_box_rect = new Rect(
       position.x,
       position.y,
       element.width,
@@ -79,7 +46,83 @@ export class Image implements IImage {
   }
 
   draw(renderer: Renderer): void {
-    renderer.draw_entire_image(this.element, this.position);
+    renderer.draw_entire_image(this.element, this.bounding_box_rect.position);
+  }
+
+  get bounding_box(): IRect {
+    return this.bounding_box_rect;
+  }
+
+  move_horizontally(distance: number): void {
+    this.bounding_box_rect.set_x(this.bounding_box_rect.x() + distance);
+  }
+
+  set_x(x: number): void {
+    this.bounding_box_rect.set_x(x);
+  }
+
+  right(): number {
+    return this.bounding_box_rect.right();
+  }
+}
+
+export interface IRect {
+  position: IPoint;
+  width: number;
+  height: number;
+}
+
+export class Rect implements IRect {
+  position: IPoint;
+  width: number;
+  height: number;
+
+  constructor(x: number, y: number, width: number, height: number) {
+    this.position = { x, y };
+    this.width = width;
+    this.height = height;
+  }
+
+  static new_from_x_y(
+    x: number,
+    y: number,
+    width: number,
+    height: number
+  ): Rect {
+    return new Rect(x, y, width, height);
+  }
+
+  x(): number {
+    return this.position.x;
+  }
+
+  y(): number {
+    return this.position.y;
+  }
+
+  right(): number {
+    return this.x() + this.width;
+  }
+
+  bottom(): number {
+    return this.y() + this.height;
+  }
+
+  set_x(x: number): void {
+    this.position.x = x;
+  }
+
+  set_y(y: number): void {
+    this.position.y = y;
+  }
+
+  intersects(rect: Rect): boolean {
+    return (
+      this.x() < rect.right() &&
+      this.right() > rect.x() &&
+      this.y() < rect.bottom() &&
+      this.bottom() > rect.y()
+    );
   }
 }
 
@@ -95,19 +138,19 @@ export interface IRenderer {
 export class Renderer implements IRenderer {
   public context: CanvasRenderingContext2D = context();
 
-  clear(rect: IRect): void {
-    this.context.clearRect(rect.x, rect.y, rect.width, rect.height);
+  clear(rect: Rect): void {
+    this.context.clearRect(rect.x(), rect.y(), rect.width, rect.height);
   }
 
-  draw_image(image: HTMLImageElement, frame: IRect, destination: IRect): void {
+  draw_image(image: HTMLImageElement, frame: Rect, destination: Rect): void {
     this.context.drawImage(
       image,
-      frame.x,
-      frame.y,
+      frame.x(),
+      frame.y(),
       frame.width,
       frame.height,
-      destination.x,
-      destination.y,
+      destination.x(),
+      destination.y(),
       destination.width,
       destination.height
     );
@@ -164,6 +207,29 @@ export function prepare_input(): KeyState {
     state.set_released(event.code);
   };
   return state;
+}
+
+interface ISpriteSheet {
+  sheet: ISheet;
+  image: HTMLImageElement;
+}
+
+class SpriteSheet implements ISpriteSheet {
+  sheet: ISheet;
+  image: HTMLImageElement;
+
+  constructor(sheet: ISheet, image: HTMLImageElement) {
+    this.sheet = sheet;
+    this.image = image;
+  }
+
+  cell(name: string): ICell {
+    return this.sheet.frames[name];
+  }
+
+  draw(renderer: Renderer, source: Rect, destination: Rect): void {
+    renderer.draw_image(this.image, source, destination);
+  }
 }
 
 interface IGameLoop {

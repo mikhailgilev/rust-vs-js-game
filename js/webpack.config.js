@@ -5,7 +5,7 @@ const dist = path.resolve(__dirname, "dist");
 
 module.exports = {
   mode: "production",
-	entry: "./src/main.ts",
+  entry: "./src/main.ts",
   output: {
     path: dist,
     filename: "index.js",
@@ -35,4 +35,8 @@ module.exports = {
       patterns: [path.resolve(__dirname, "static")],
     }),
   ],
+  performance: {
+    hints: false,
+    maxAssetSize: 512000
+  }
 };

@@ -151,7 +151,7 @@ fn prepare_input() -> Result<UnboundedReceiver<KeyPress>> {
     Ok(keyevent_receiver)
 }
 
-fn process_inpit(state: &mut KeyState, keyevent_receiver: &mut UnboundedReceiver<KeyPress>) {
+fn process_input(state: &mut KeyState, keyevent_receiver: &mut UnboundedReceiver<KeyPress>) {
     loop {
         match keyevent_receiver.try_next() {
             Ok(None) => break,
@@ -309,7 +309,7 @@ impl GameLoop {
         let g = f.clone();
         let mut keystate = KeyState::new();
         *g.borrow_mut() = Some(browser::create_raf_closure(move |perf: f64| {
-            process_inpit(&mut keystate, &mut keyevent_receiver);
+            process_input(&mut keystate, &mut keyevent_receiver);
             let frame_time = perf - game_loop.last_frame;
             game_loop.accumulated_delta += frame_time as f32;
             while game_loop.accumulated_delta > FRAME_SIZE {
