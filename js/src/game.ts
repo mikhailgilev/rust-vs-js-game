@@ -1,7 +1,8 @@
-import { fetch_json } from "./browser";
-import { IGame, IPoint, IRect, ISheet, KeyState, Renderer, load_image, Image, SpriteSheet } from "./engine";
+import { draw_ui, fetch_json, find_html_element_by_id, hide_ui } from "./browser";
+import { Audio, IGame, KeyState, Renderer, load_image, Image, SpriteSheet, add_click_handler, Rect } from "./engine";
 import { IObstacle } from "./obstacles";
 import { RedHatBoy } from "./red_hat_boy";
+import { platform_and_stone, stone_and_platform } from "./segments";
 
 const TIMELINE_MINIMUM: number = 1000;
 const OBSTACLE_BUFFER: number = 20;
@@ -34,8 +35,8 @@ class Walk implements IWalk {
   }
 
   generate_next_segment(): void {
-    const next_segment = Math.floor(Math.random() * 3);
-    let next_obstacles;
+    const next_segment = Math.floor(Math.random() * 2);
+    let next_obstacles: Array<IObstacle>;
     switch (next_segment) {
       case 0:
         next_obstacles = stone_and_platform(this.stone, this.obstacle_sheet, this.timeline + OBSTACLE_BUFFER);
@@ -67,7 +68,6 @@ class Walk implements IWalk {
   static reset(walk: Walk): Walk {
     const starting_obstacles = stone_and_platform(walk.stone, walk.obstacle_sheet, 0);
     const timeline = rightmost(starting_obstacles);
-
     return new Walk(
       RedHatBoy.reset(walk.boy),
       walk.backgrounds,
@@ -79,18 +79,6 @@ class Walk implements IWalk {
   }
 }
 
-enum ReadyEndState {
-  Complete,
-  Continue,
-}
-
-enum GameOverEndState {
-  Complete,
-  Continue,
-}
-
-
-
 enum WalkTheDogStateType {
   Ready,
   Walking,
@@ -98,13 +86,61 @@ enum WalkTheDogStateType {
 }
 
 interface IWalkTheDogState {
- type: WalkTheDogStateType;
- walk: Walk;
+  type: WalkTheDogStateType;
+  walk: Walk;
+  draw(renderer: Renderer): void;
 }
 
 class WalkingWalkTheDogState implements IWalkTheDogState {
   type = WalkTheDogStateType.Walking;
   constructor(public walk: Walk) {}
+
+  update(keystate: KeyState): WalkingWalkTheDogState | GameOverWalkTheDogState {
+    if (keystate.is_pressed("ArrowDown")) {
+      this.walk.boy.slide();
+    }
+    if (keystate.is_pressed("Space")) {
+      this.walk.boy.jump();
+    }
+    this.walk.boy.update();
+    let walking_speed = this.walk.velocity();
+    let [first_background, second_background] = this.walk.backgrounds;
+    first_background.move_horizontally(walking_speed);
+    second_background.move_horizontally(walking_speed);
+    if (first_background.right() < 0) {
+      first_background.set_x(second_background.right());
+    }
+    if (second_background.right() < 0) {
+      second_background.set_x(first_background.right());
+    }
+    this.walk.obstacles = this.walk.obstacles.filter((obstacle) => obstacle.right() > 0);
+    this.walk.obstacles.forEach((obstacle) => {
+      obstacle.move_horizontally(walking_speed);
+      obstacle.check_intersection(this.walk.boy);
+    });
+    if (this.walk.timeline < TIMELINE_MINIMUM) {
+      this.walk.generate_next_segment();
+    } else {
+      this.walk.timeline += walking_speed;
+    }
+    if (this.walk.knocked_out()) {
+      return this.end_game();
+    } else {
+      return this;
+    }
+  }
+
+  end_game(): GameOverWalkTheDogState {
+    draw_ui("<button id='new_game'>New Game</button");
+    const el = find_html_element_by_id("new_game");
+    const nextState = new GameOverWalkTheDogState(this.walk);
+    add_click_handler(el, () => (nextState.new_game_pressed = true));
+    return nextState;
+  }
+
+  draw(renderer: Renderer): void {
+    this.walk.draw(renderer);
+  }
 }
 
 class ReadyWalkTheDogState implements IWalkTheDogState {
@@ -120,22 +156,43 @@ class ReadyWalkTheDogState implements IWalkTheDogState {
     }
   }
 
-start_running(): WalkingWalkTheDogState {
+  start_running(): WalkingWalkTheDogState {
     this.run_right();
     return new WalkingWalkTheDogState(this.walk);
-  } 
+  }
 
-run_right(): void {
+  run_right(): void {
     this.walk.boy.run_right();
+  }
+
+  draw(renderer: Renderer): void {
+    this.walk.draw(renderer);
   }
 }
 
 class GameOverWalkTheDogState implements IWalkTheDogState {
   type = WalkTheDogStateType.GameOver;
+  public new_game_pressed: boolean = false;
+
   constructor(public walk: Walk) {}
+
+  update(): GameOverWalkTheDogState | ReadyWalkTheDogState {
+    if (this.new_game_pressed) {
+      return this.new_game();
+    } else {
+      return this;
+    }
+  }
+
+  new_game(): ReadyWalkTheDogState {
+    hide_ui();
+    return new ReadyWalkTheDogState(Walk.reset(this.walk));
+  }
+
+  draw(renderer: Renderer): void {
+    this.walk.draw(renderer);
+  }
 }
-
-
 
 class WalkTheDogStateMachine {
   private state: IWalkTheDogState;
@@ -143,7 +200,7 @@ class WalkTheDogStateMachine {
   constructor(walk: Walk) {
     this.state = new ReadyWalkTheDogState(walk);
   }
-  
+
   update(keystate: KeyState): WalkTheDogStateMachine {
     if (this.state.type === WalkTheDogStateType.Ready) {
       this.state = (<ReadyWalkTheDogState>this.state).update(keystate);
@@ -155,83 +212,66 @@ class WalkTheDogStateMachine {
     return this;
   }
 
-  fn draw(&self, renderer: &Renderer) {
-      match self {
-          WalkTheDogStateMachine::Ready(state) => state.draw(renderer),
-          WalkTheDogStateMachine::Walking(state) => state.draw(renderer),
-          WalkTheDogStateMachine::GameOver(state) => state.draw(renderer),
-      }
-  }
-
-  fn new(walk: Walk) -> Self {
-      WalkTheDogStateMachine::Ready(WalkTheDogState::new(walk))
+  draw(renderer: Renderer): void {
+    this.state.draw(renderer);
   }
 }
 
+interface IWalkTheDog {
+  machine: WalkTheDogStateMachine | undefined;
+}
 
 export class WalkTheDog implements IWalkTheDog, IGame {
-  state: WalkTheDogState = WalkTheDogState.Loading;
-  walk: Walk;
+  machine: WalkTheDogStateMachine | undefined;
 
-  draw(renderer: Renderer): void {
-    this.walk.draw(renderer);
-  }
-
-  async initialize(): Promise<void> {
-    if (this.state === WalkTheDogState.Loading) {
-      let sheet = await fetch_json("rhb.json");
-      let image = await load_image("rhb.png");
+  async initialize(): Promise<IGame> {
+    if (this.machine === undefined) {
+      let json = await fetch_json("rhb.json");
       let background = await load_image("BG.png");
+      let background_width = background.width;
       let stone = await load_image("Stone.png");
-      let platform_sheet = await fetch_json("tiles.json");
-      let platform_image = await load_image("tiles.png");
-      let platform = new Platform(platform_sheet, platform_image, {
-        x: 200,
-        y: LOW_PLATFORM,
-      });
-      this.walk = {
-        boy: new RedHatBoy(sheet, image),
-        background: new Image(background, { x: 0, y: 0 }),
-        stone: new Image(stone, { x: 150, y: 516 }),
-        platform,
-      };
-      this.state = WalkTheDogState.Loaded;
+      let tiles_json = await fetch_json("tiles.json");
+      let tiles = new SpriteSheet(tiles_json, await load_image("tiles.png"));
+      let starting_obstacles = stone_and_platform(stone, tiles, 0);
+      let timeline = rightmost(starting_obstacles);
+      let audio = new Audio();
+      let sound = await audio.load_sound("SFX_Jump_23.mp3");
+      let background_music = await audio.load_sound("background_song.mp3");
+      audio.play_looping_sound(background_music);
+      let rhb = new RedHatBoy(json, await load_image("rhb.png"), audio, sound);
+      this.machine = new WalkTheDogStateMachine(
+        new Walk(
+          rhb,
+          [
+            new Image(background, { x: 0, y: 0 }),
+            new Image(background, {
+              x: background_width,
+              y: 0,
+            }),
+          ],
+          starting_obstacles,
+          tiles,
+          stone,
+          timeline
+        )
+      );
+      setTimeout(() => {});
+    } else {
+      throw new Error("State machine already exists");
     }
+    return this;
   }
 
   update(keystate: KeyState): void {
-    if (this.state === WalkTheDogState.Loaded && this.walk !== undefined) {
-      let velocity: IPoint = { x: 0, y: 0 };
-      if (keystate.is_pressed("ArrowDown")) {
-        this.walk.boy.slide();
-      }
-      if (keystate.is_pressed("ArrowUp")) {
-        velocity.y -= 3;
-      }
-      if (keystate.is_pressed("ArrowRight")) {
-        velocity.x += 3;
-        this.walk.boy.run_right();
-      }
-      if (keystate.is_pressed("ArrowLeft")) {
-        velocity.x -= 3;
-      }
-      if (keystate.is_pressed("Space")) {
-        this.walk.boy.jump();
-      }
-      this.walk.boy.update();
+    if (this.machine !== undefined) {
+      this.machine = this.machine.update(keystate);
+    }
+  }
 
-      for (let bounding_box of this.walk.platform.bounding_boxes()) {
-        if (this.walk.boy.bounding_box().intersects(bounding_box)) {
-          if (this.walk.boy.velocity_y() > 0 && this.walk.boy.pos_y() < this.walk.platform.position.y) {
-            this.walk.boy.land_on(bounding_box.y);
-          } else {
-            this.walk.boy.knock_out();
-          }
-        }
-      }
-      if (this.walk.boy.bounding_box().intersects(this.walk.stone.bounding_box)) {
-        this.walk.boy.knock_out();
-      }
+  draw(renderer: Renderer): void {
+    renderer.clear(Rect.new_from_x_y(0, 0, 600, 570));
+    if (this.machine !== undefined) {
+      this.machine.draw(renderer);
     }
   }
 }

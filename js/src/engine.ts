@@ -148,12 +148,12 @@ export class Renderer implements IRenderer {
 }
 
 export interface IGame {
-  initialize(): void;
+  initialize(): Promise<IGame>;
   update(keystate: KeyState): void;
   draw(renderer: IRenderer): void;
 }
 
-const FRAME_SIZE: number = (1.0 / 60.0) * 1000.0;
+const FRAME_SIZE: number = (1 / 60) * 1000;
 
 enum KeyPress {
   KeyUp,
@@ -229,7 +229,7 @@ export class GameLoop implements IGameLoop {
 
   async start(game: IGame): Promise<void> {
     let keystate = prepare_input();
-    let gameImpl = await game.initialize();
+    await game.initialize();
     let renderer = new Renderer();
     let animate = (perf: number) => {
       this.accumulated_delta += perf - this.last_frame;

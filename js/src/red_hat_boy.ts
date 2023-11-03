@@ -121,9 +121,9 @@ export class RedHatBoy implements IRedHatBoy {
   }
 
   bounding_box(): Rect {
-    const X_OFFSET: number = 18.0;
-    const Y_OFFSET: number = 14.0;
-    const WIDTH_OFFSET: number = 28.0;
+    const X_OFFSET: number = 18;
+    const Y_OFFSET: number = 14;
+    const WIDTH_OFFSET: number = 28;
     let bounding_box = this.destination_box();
     bounding_box.set_x(bounding_box.x() + X_OFFSET);
     bounding_box.width -= WIDTH_OFFSET;

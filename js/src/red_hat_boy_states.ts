@@ -50,7 +50,6 @@ export class RedHatBoyContext implements IRedHatBoyContext {
     if (this.velocity.y < TERMINAL_VELOCITY) {
       this.velocity.y += GRAVITY;
     }
-    this.position.x += this.velocity.x;
     this.position.y += this.velocity.y;
     if (this.position.y > FLOOR) {
       this.position.y = FLOOR;
@@ -148,7 +147,7 @@ export class RunningRedHatBoyState implements IRedHatBoyState {
   }
 
   jump(): JumpingRedHatBoyState {
-    return new JumpingRedHatBoyState(this.context.set_vertical_velocity(JUMP_SPEED).reset_frame());
+    return new JumpingRedHatBoyState(this.context.set_vertical_velocity(JUMP_SPEED).reset_frame().play_jump_sound());
   }
 
   knock_out(): FallingRedHatBoyState {

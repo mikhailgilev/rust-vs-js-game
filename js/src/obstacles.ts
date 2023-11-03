@@ -1,12 +1,12 @@
 import { ICell, IPoint, ISpriteSheet, Rect, Renderer, SpriteSheet, Image } from "./engine";
 import { RedHatBoy } from "./red_hat_boy";
 
-const LOW_PLATFORM: number = 420;
-const HIGH_PLATFORM: number = 375;
-const FIRST_PLATFORM: number = 200;
+export const LOW_PLATFORM: number = 420;
+export const HIGH_PLATFORM: number = 375;
+export const FIRST_PLATFORM: number = 200;
 
-const FLOATING_PLATFORM_SPRITES: [string, string, string] = ["13.png", "14.png", "15.png"];
-const FLOATING_PLATFORM_BOUNDING_BOXES: [Rect, Rect, Rect] = [
+export const FLOATING_PLATFORM_SPRITES: [string, string, string] = ["13.png", "14.png", "15.png"];
+export const FLOATING_PLATFORM_BOUNDING_BOXES: [Rect, Rect, Rect] = [
   Rect.new_from_x_y(0, 0, 60, 54),
   Rect.new_from_x_y(60, 0, 384 - 60 * 2, 93),
   Rect.new_from_x_y(384 - 60, 0, 60, 54),
